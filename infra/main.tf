@@ -16,7 +16,7 @@ resource "azurerm_storage_account" "stg_account" {
 
 # File Share
 resource "azurerm_storage_share" "fileshare" {
-  name               = "sharename"
+  name               = "filesharelnxprjct"
   storage_account_id = azurerm_storage_account.stg_account.id
   quota              = 50
 }
@@ -94,13 +94,16 @@ resource "azurerm_linux_virtual_machine" "vm" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   size                = "Standard_D2ds_v5"
-  admin_username      = "BrandonGC"
+
+  admin_username                  = var.vm_username
+  disable_password_authentication = true
+
   network_interface_ids = [
     azurerm_network_interface.nic.id,
   ]
 
   admin_ssh_key {
-    username   = "BrandonGC"
+    username   = var.vm_username
     public_key = file(var.ssh_pub_key_path)
   }
 
@@ -117,3 +120,35 @@ resource "azurerm_linux_virtual_machine" "vm" {
     version   = "latest"
   }
 }
+
+
+# OUTPUTS
+
+# VM Public IP
+output "vm_public_ip" {
+  description = "Public IP address of the VM"
+  value       = azurerm_public_ip.public_ip.ip_address
+}
+
+# Storage account name
+output "storage_account_name" {
+  value = azurerm_storage_account.stg_account.name
+}
+
+# Storage account key (sensitive)
+output "storage_account_key" {
+  value     = azurerm_storage_account.stg_account.primary_access_key
+  sensitive = true
+}
+
+# File share name
+output "file_share_name" {
+  value = azurerm_storage_share.fileshare.name
+}
+
+# Mount directory
+output "mount_dir" {
+  value = "/media/az-linux-files"
+}
+
+
