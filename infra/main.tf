@@ -152,3 +152,25 @@ output "mount_dir" {
 }
 
 
+# Generate Ansible variable file with storage details
+resource "local_file" "ansible_vars" {
+  content = <<EOT
+storage_account_name: "${azurerm_storage_account.stg_account.name}"
+storage_account_key: "${azurerm_storage_account.stg_account.primary_access_key}"
+file_share_name: "${azurerm_storage_share.fileshare.name}"
+mount_dir: "/media/az-linux-files"
+vm_public_ip: "${azurerm_public_ip.public_ip.ip_address}"
+EOT
+
+  filename = "${path.module}/../ansible/vars/all.yml"
+}
+
+# Generate Ansible inventory file
+resource "local_file" "ansible_inventory" {
+  filename = "${path.module}/../ansible/inventory.ini"
+
+  content = <<EOF
+[linux]
+myvm ansible_host=${azurerm_public_ip.public_ip.ip_address} ansible_user=${var.vm_username} ansible_ssh_private_key_file=/home/brandon/.ssh/id_rsa_azure_project
+EOF
+}
