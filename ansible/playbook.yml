@@ -1,0 +1,76 @@
+- name: Configure Azure Linux VM
+  hosts: linux
+  become: true
+  vars_files:
+    - vars/all.yml
+
+  vars:
+    username: "BrandonGC"
+
+  tasks:
+    - name: Update apt packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+
+    - name: Install CIFS (required to mount Azure File Share)
+      ansible.builtin.apt:
+        name: cifs-utils
+        state: present
+
+    - name: Ensure mount directory exists
+      ansible.builtin.file:
+        path: "{{ mount_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Ensure /etc/smbcredentials directory exists
+      ansible.builtin.file:
+        path: /etc/smbcredentials
+        state: directory
+        mode: "0755"
+
+    - name: Create credentials file for Azure File Share
+      ansible.builtin.copy:
+        dest: "/etc/smbcredentials/{{ storage_account_name }}.cred"
+        content: |
+          username={{ storage_account_name }}
+          password={{ storage_account_key }}
+        mode: "0600"
+
+    - name: Ensure fstab entry exists for Azure File Share
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: >
+          //{{ storage_account_name }}.file.core.windows.net/{{ file_share_name }}
+          {{ mount_dir }} cifs
+          nofail,
+          credentials=/etc/smbcredentials/{{ storage_account_name }}.cred,
+          dir_mode=0755,
+          file_mode=0755,
+          serverino,
+          nosharesock,
+          mfsymlinks,
+          actimeo=30
+        state: present
+        create: false
+
+      # TODO: Explain what we do here
+    - name: Mount Azure File Share
+      ansible.posix.mount:
+        path: "{{ mount_dir }}"
+        src: "//{{ storage_account_name }}.file.core.windows.net/{{ file_share_name }}"
+        fstype: cifs
+        opts: "nofail,credentials=/etc/smbcredentials/{{ storage_account_name }}.cred,dir_mode=0755,file_mode=0755,serverino,nosharesock,mfsymlinks,actimeo=30"
+        state: mounted
+
+      # Create test file to verify mount
+    - name: Create test file in mounted Azure File Share
+      ansible.builtin.copy:
+        dest: "{{ mount_dir }}/testfile.txt"
+        content: "This is a test file created by Ansible in the Azure File Share."
+        mode: "0644"
+
+    - name: Print name
+      ansible.builtin.debug:
+        msg: "Hello {{ username }}! The VM's public IP address is {{ vm_public_ip }}"
