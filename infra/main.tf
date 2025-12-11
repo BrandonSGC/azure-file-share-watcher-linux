@@ -88,6 +88,12 @@ resource "azurerm_network_interface_security_group_association" "nsg_nic_associa
   network_security_group_id = azurerm_network_security_group.nsg.id
 }
 
+# Associate NSG with Subnet
+resource "azurerm_subnet_network_security_group_association" "nsg_subnet_association" {
+  subnet_id                 = azurerm_subnet.subnet.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+}
+
 # Linux Virtual Machine
 resource "azurerm_linux_virtual_machine" "vm" {
   name                = "vm-linux-project"
