@@ -23,7 +23,7 @@ resource "azurerm_storage_share" "fileshare" {
 
 # Virtual Network
 resource "azurerm_virtual_network" "vnet" {
-  name                = "vnet-linux-project"
+  name                = "vnet-lnx-prjct"
   address_space       = ["10.0.0.0/16"]
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
@@ -39,7 +39,8 @@ resource "azurerm_subnet" "subnet" {
 
 # Public IP
 resource "azurerm_public_ip" "public_ip" {
-  name                = "public-ip-vm"
+  count               = var.vm_count
+  name                = "public-ip-vm-${count.index}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   allocation_method   = "Static"
@@ -47,7 +48,8 @@ resource "azurerm_public_ip" "public_ip" {
 
 # Network Interface Card
 resource "azurerm_network_interface" "nic" {
-  name                = "nic"
+  count               = var.vm_count
+  name                = "nic-vm-${count.index}"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
@@ -55,13 +57,13 @@ resource "azurerm_network_interface" "nic" {
     name                          = "internal"
     subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.public_ip.id
+    public_ip_address_id          = azurerm_public_ip.public_ip[count.index].id
   }
 }
 
 # Network Security Group
 resource "azurerm_network_security_group" "nsg" {
-  name                = "nsg"
+  name                = "nsg_lnx_prjct"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 }
@@ -84,7 +86,8 @@ resource "azurerm_network_security_rule" "nsg_ssh_rule" {
 
 # Associate NSG with NIC
 resource "azurerm_network_interface_security_group_association" "nsg_nic_association" {
-  network_interface_id      = azurerm_network_interface.nic.id
+  count                     = var.vm_count
+  network_interface_id      = azurerm_network_interface.nic[count.index].id
   network_security_group_id = azurerm_network_security_group.nsg.id
 }
 
@@ -96,7 +99,8 @@ resource "azurerm_subnet_network_security_group_association" "nsg_subnet_associa
 
 # Linux Virtual Machine
 resource "azurerm_linux_virtual_machine" "vm" {
-  name                = "vm-linux-project"
+  count               = var.vm_count
+  name                = "vm-${count.index}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   size                = "Standard_D2ds_v5"
@@ -105,7 +109,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
   disable_password_authentication = true
 
   network_interface_ids = [
-    azurerm_network_interface.nic.id,
+    azurerm_network_interface.nic[count.index].id,
   ]
 
   admin_ssh_key {
@@ -114,6 +118,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
   }
 
   os_disk {
+    name                 = "os-disk-vm-${count.index}"
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
     disk_size_gb         = 30
@@ -131,9 +136,9 @@ resource "azurerm_linux_virtual_machine" "vm" {
 # OUTPUTS
 
 # VM Public IP
-output "vm_public_ip" {
-  description = "Public IP address of the VM"
-  value       = azurerm_public_ip.public_ip.ip_address
+output "vms_public_ips" {
+  description = "Public IP addresses of the VMs"
+  value       = azurerm_public_ip.public_ip[*].ip_address
 }
 
 # Storage account name
@@ -157,7 +162,6 @@ output "mount_dir" {
   value = "/media/az-linux-files"
 }
 
-
 # Generate Ansible variable file with storage details
 resource "local_file" "ansible_vars" {
   content = <<EOT
@@ -165,7 +169,6 @@ storage_account_name: "${azurerm_storage_account.stg_account.name}"
 storage_account_key: "${azurerm_storage_account.stg_account.primary_access_key}"
 file_share_name: "${azurerm_storage_share.fileshare.name}"
 mount_dir: "/media/az-linux-files"
-vm_public_ip: "${azurerm_public_ip.public_ip.ip_address}"
 EOT
 
   filename = "${path.module}/../ansible/vars/all.yml"
@@ -177,6 +180,8 @@ resource "local_file" "ansible_inventory" {
 
   content = <<EOF
 [linux]
-myvm ansible_host=${azurerm_public_ip.public_ip.ip_address} ansible_user=${var.vm_username} ansible_ssh_private_key_file=/home/brandon/.ssh/id_rsa_azure_project
+%{for idx, ip in azurerm_public_ip.public_ip[*].ip_address~}
+vm-${idx} ansible_host=${ip} ansible_user=${var.vm_username} ansible_ssh_private_key_file=${var.ssh_priv_key_path}
+%{endfor~}
 EOF
 }

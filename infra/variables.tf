@@ -3,6 +3,12 @@ variable "rg_name" {
   type        = string
 }
 
+variable "vm_count" {
+  description = "Number of VMs to create"
+  type        = number
+  default     = 2
+}
+
 variable "public_ip" {
   description = "Your public IP address"
   type        = string
@@ -13,13 +19,12 @@ variable "vm_username" {
   type        = string
 }
 
-# variable "ips_list" {
-#   description = "List of IPs to create"
-#   type        = list(string)
-#   default     = ["ip-test-1", "ip-test-2", "ip-test-3"]
-# }
-
 variable "ssh_pub_key_path" {
   description = "Path to the SSH public key used for VM access"
+  type        = string
+}
+
+variable "ssh_priv_key_path" {
+  description = "Path to the SSH private key used for VM access"
   type        = string
 }
