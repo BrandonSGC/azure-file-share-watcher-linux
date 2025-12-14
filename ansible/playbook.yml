@@ -4,9 +4,6 @@
   vars_files:
     - vars/all.yml
 
-  vars:
-    username: "BrandonGC"
-
   tasks:
     - name: Update apt packages
       ansible.builtin.apt:
@@ -55,7 +52,6 @@
         state: present
         create: false
 
-      # TODO: Explain what we do here
     - name: Mount Azure File Share
       ansible.posix.mount:
         path: "{{ mount_dir }}"
@@ -70,7 +66,3 @@
         dest: "{{ mount_dir }}/testfile.txt"
         content: "This is a test file created by Ansible in the Azure File Share."
         mode: "0644"
-
-    - name: Print name
-      ansible.builtin.debug:
-        msg: "Hello {{ username }}! The VM's public IP address is {{ vm_public_ip }}"
